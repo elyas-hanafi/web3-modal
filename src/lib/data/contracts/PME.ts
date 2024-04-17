@@ -1,6 +1,5 @@
-import { ContractI } from "@/lib/types/contract";
 
-export const PMEContract: ContractI = {
+export const PMEContract = {
   MAIN_ADDRESS: "0x3b7A389DF11A0F71739b1632dcAaf89D2E6c3116",
   ABI: [
     {

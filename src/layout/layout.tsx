@@ -1,4 +1,4 @@
-import Web3ModalProvider from "@/contexts";
+import Web3Provider from "@/lib/Web3Provider";
 import { Poppins } from "next/font/google";
 const poppins = Poppins({
   subsets: ["latin"],
@@ -12,8 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <main className={`${poppins.className}`}>
-      <Web3ModalProvider>{children}</Web3ModalProvider>
+    <main className={`${poppins.className} h-screen`}>
+      <Web3Provider>{children}</Web3Provider>
     </main>
   );
 }

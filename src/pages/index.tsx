@@ -1,75 +1,249 @@
-import BuyMeCoffee from "@/components/pages/index/BuyMeCoffee";
-import BuyMeCoffeeByContract from "@/components/pages/index/BuyMeCoffeeByContract";
-import WalletStatus from "@/components/pages/index/WalletStatus";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Icon } from "@iconify/react/dist/iconify.js";
-import Image from "next/image";
+import { useState } from "react";
 
-export default function Home() {
+// Components
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TransActionHOC from "@/lib/Web3Provider/TransActionHOC";
+import { PMEContract } from "@/lib/data/contracts/PME";
+import { Icon } from "@iconify/react/dist/iconify.js";
+import { Abi, Address, formatUnits, parseUnits } from "viem";
+import { polygon } from "viem/chains";
+
+const Trans = () => {
+  // State for transaction value and destination wallet address
+  const [value, setValue] = useState<string | number>("0");
+  const [desWallet, setDesWallet] = useState("");
+
   return (
-    <main
-      className={`flex min-h-screen flex-col items-center justify-between   `}
-    >
-      <div className="w-full absolute h-screen -z-100 ">
-        <Image
-          src={"/assets/images/moons.webp"}
-          className="Images_hollowplanets__NOFlf"
-          width={1300}
-          height={1300}
-          alt=""
-        />
-        <Image
-          src={"/assets/images/planet.svg"}
-          className="Images_bigplanet__LgSiS"
-          width={200}
-          height={200}
-          alt=""
-        />
-        <Image
-          src={"/assets/images/planet.svg"}
-          className="Images_smallplanet__JD3DP"
-          width={200}
-          height={200}
-          alt=""
-        />
-      </div>
-      <div className="container h-screen  relative z-100  mt-40 max-w-[700px] justify-center   ">
-        <div className="  ">
-          <h1 className="welcomeText">Fariborz Dapp</h1>
-          <p className="font-bold mt-2">
-            Hi ✌️, Welcome to my Dapp
-            <span className="mt-2 block text-gray-200 font-light">
-              {" "}
-              this web app developed with Web3Modal , so you can by me a coffee
-              by your crypto currency
-            </span>
-          </p>
-          <Button variant={"glass"} className="mt-4 gap-4">
-            <Icon icon={"akar-icons:github-outline-fill"} className="size-6" />
-            This Project on Github
-          </Button>
-        </div>
-        <div className="mt-4  ">
-          <WalletStatus />
-        </div>
-        <Tabs defaultValue="matic" className=" mt-12">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="matic">MATIC</TabsTrigger>
-            <TabsTrigger value="contract">PME Contract</TabsTrigger>
-          </TabsList>
-          <TabsContent value="matic">
-            <div className="mt-4  ">
-              <BuyMeCoffee />
+    <div className="w-screen h-screen flex justify-center items-center">
+      {/* Higher-order component for handling transactions */}
+      <TransActionHOC
+        contract={{
+          abi: PMEContract.ABI as Abi,
+          address: PMEContract.MAIN_ADDRESS as Address,
+        }}
+      >
+        {({
+          account,
+          contract,
+          disConnector,
+          nativeTransAction,
+          nativeBalance,
+        }) => {
+          // Read user's PME balance and decimal places
+          const { data: balance, isLoading: balanceLoading } =
+            contract.readContract({
+              args: [account.address],
+              functionName: "balanceOf",
+            });
+
+          const { data: decimal, isLoading: decimalLoading } =
+            contract.readContract({
+              args: [],
+              functionName: "decimals",
+            });
+
+          // Destructure methods for writing contracts and native transactions
+          const { writeContract, isPending: sendTransActionLoading } =
+            contract.writeContract;
+
+          const { sendTransaction, isPending: sendNativeTransactionLoading } =
+            nativeTransAction;
+
+          // Read user's native Matic balance
+          const { data: MaticBalance, isLoading: nativeBalanceLoading } =
+            nativeBalance({
+              chainId: polygon.id,
+              address: account.address,
+            });
+
+          return (
+            <div className="w-md mx-auto">
+              {/* Display warning if not connected */}
+              {!account.isConnected ? (
+                <div className="bg-yellow-600 bg-opacity-30 border-yellow-800 rounded p-4">
+                  <h4 className="font-bold">Warning ⚠️</h4>
+                  <div className="w-full ">
+                    You are not connected to your wallet yet!
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Display wallet connected message */}
+                  <div className="bg-green-600 bg-opacity-30 border-green-800 rounded p-4">
+                    <h4 className="font-bold">Connected ✅</h4>
+                    <div className="w-full ">
+                      Your wallet is connected.
+                      <br />
+                      Your Address: {account.address}
+                    </div>
+                  </div>
+
+                  {/* Button to disconnect */}
+                  <Button
+                    onClick={() => disConnector.disconnect()}
+                    isLoading={disConnector.isPending}
+                    variant="glass"
+                    className="flex gap-2 ps-2 mt-2"
+                  >
+                    <span>
+                      <Icon
+                        icon={"solar:logout-3-bold-duotone"}
+                        className="size-6"
+                      />
+                    </span>
+                    <span>Disconnect</span>
+                  </Button>
+                </>
+              )}
+
+              {/* Render connect button if not connected */}
+              {!account.isConnected && (
+                <span className="mt-2 block">
+                  <w3m-connect-button />
+                </span>
+              )}
+
+              {/* Display PME balance if connected */}
+              {account.isConnected && (
+                <div className="bg-white bg-opacity-30 border rounded p-4">
+                  <span className="mx-2">Your PME balance:</span>{" "}
+                  <span>
+                    {balanceLoading || decimalLoading
+                      ? "Loading..."
+                      : `${formatUnits(
+                          balance as bigint,
+                          decimal as number
+                        )} PME`}
+                  </span>
+                </div>
+              )}
+
+              {/* Display Matic balance if connected */}
+              {account.isConnected && (
+                <div className="bg-white bg-opacity-30 border rounded p-4">
+                  <span className="mx-2">Your MATIC balance:</span>{" "}
+                  <span>
+                    {nativeBalanceLoading
+                      ? "Loading..."
+                      : `${MaticBalance?.formatted} MATIC`}
+                  </span>
+                </div>
+              )}
+
+              {/* Render tabs for selecting transaction type */}
+              {account.isConnected && (
+                <Tabs defaultValue="matic">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="matic">MATIC</TabsTrigger>
+                    <TabsTrigger value="contract">PME Contract</TabsTrigger>
+                  </TabsList>
+                  {/* Content for sending PME tokens */}
+                  <TabsContent value="contract">
+                    <div className="bg-gray-700/50 p-4 border">
+                      <h1 className="text-lg font-bold">Send PME tokens</h1>
+                      <br />
+                      <div>
+                        Wallet Address:
+                        <br />
+                        <Input
+                          value={desWallet}
+                          onChange={(e) => setDesWallet(e.target.value)}
+                        />
+                      </div>
+                      <br />
+                      <div>
+                        Value PME:
+                        <br />
+                        <Input
+                          value={value}
+                          onChange={(e) => setValue(e.target.value)}
+                        />
+                      </div>
+                      <br />
+                      {/* Button for sending PME tokens */}
+                      <Button
+                        isLoading={sendTransActionLoading}
+                        onClick={() => {
+                          writeContract(
+                            {
+                              abi: PMEContract.ABI,
+                              address: PMEContract.MAIN_ADDRESS as `0x${string}`,
+                              functionName: "transfer",
+                              args: [
+                                desWallet,
+                                parseUnits(value.toString(), decimal as number),
+                              ],
+                            },
+                            {
+                              onSuccess: () => {
+                                // Handle success
+                              },
+                            }
+                          );
+                        }}
+                      >
+                        Send
+                      </Button>
+                    </div>
+                  </TabsContent>
+                  {/* Content for sending native Matic tokens */}
+                  <TabsContent value="matic">
+                    <div className="bg-gray-700/50 p-4 border">
+                      <h1 className="text-lg font-bold">Send MATIC tokens</h1>
+                      <br />
+                      <div>
+                        Wallet Address:
+                        <br />
+                        <Input
+                          value={desWallet}
+                          onChange={(e) => setDesWallet(e.target.value)}
+                        />
+                      </div>
+                      <br />
+                      <div>
+                        Value MATIC:
+                        <br />
+                        <Input
+                          value={value}
+                          onChange={(e) => setValue(e.target.value)}
+                        />
+                      </div>
+                      <br />
+                      {/* Button for sending native Matic tokens */}
+                      <Button
+                        isLoading={sendNativeTransactionLoading}
+                        onClick={() => {
+                          sendTransaction(
+                            {
+                              to: desWallet as `0x${string}`,
+                              value: parseUnits(
+                                value.toString(),
+                                polygon.nativeCurrency.decimals
+                              ),
+                              chainId: polygon.id,
+                            },
+                            {
+                              onSuccess: () => {
+                                // Handle success
+                              },
+                            }
+                          );
+                        }}
+                      >
+                        Send
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              )}
             </div>
-          </TabsContent>
-          <TabsContent value="contract">
-            <div className="   mt-8">
-              <BuyMeCoffeeByContract />
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </main>
+          );
+        }}
+      </TransActionHOC>
+    </div>
   );
-}
+};
+
+export default Trans;
