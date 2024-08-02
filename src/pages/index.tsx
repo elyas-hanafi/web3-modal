@@ -32,17 +32,23 @@ const Trans = () => {
           nativeBalance,
         }) => {
           // Read user's PME balance and decimal places
-          const { data: balance, isLoading: balanceLoading } =
-            contract.readContract({
-              args: [account.address],
-              functionName: "balanceOf",
-            });
+          const {
+            data: balance,
+            isLoading: balanceLoading,
+            error: balanceError,
+          } = contract.readContract({
+            args: [account.address],
+            functionName: "balanceOf",
+          });
 
-          const { data: decimal, isLoading: decimalLoading } =
-            contract.readContract({
-              args: [],
-              functionName: "decimals",
-            });
+          const {
+            data: decimal,
+            isLoading: decimalLoading,
+            error: decimalError,
+          } = contract.readContract({
+            args: [],
+            functionName: "decimals",
+          });
 
           // Destructure methods for writing contracts and native transactions
           const { writeContract, isPending: sendTransActionLoading } =
@@ -57,6 +63,21 @@ const Trans = () => {
               chainId: polygon.id,
               address: account.address,
             });
+
+          const renderBalance = () => {
+            if (balanceLoading || decimalLoading) {
+              return "Loading...";
+            }
+            if (
+              balanceError ||
+              decimalError ||
+              balance === undefined ||
+              decimal === undefined
+            ) {
+              return "Error loading balance";
+            }
+            return `${formatUnits(balance as bigint, decimal as number)} PME`;
+          };
 
           return (
             <div className="w-md mx-auto">
@@ -109,14 +130,7 @@ const Trans = () => {
               {account.isConnected && (
                 <div className="bg-white bg-opacity-30 border rounded p-4">
                   <span className="mx-2">Your PME balance:</span>{" "}
-                  <span>
-                    {balanceLoading || decimalLoading
-                      ? "Loading..."
-                      : `${formatUnits(
-                          balance as bigint,
-                          decimal as number
-                        )} PME`}
-                  </span>
+                  <span>{renderBalance()}</span>
                 </div>
               )}
 
@@ -169,7 +183,8 @@ const Trans = () => {
                           writeContract(
                             {
                               abi: PMEContract.ABI,
-                              address: PMEContract.MAIN_ADDRESS as `0x${string}`,
+                              address:
+                                PMEContract.MAIN_ADDRESS as `0x${string}`,
                               functionName: "transfer",
                               args: [
                                 desWallet,
